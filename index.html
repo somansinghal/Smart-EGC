@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>SmartECG ICU Command Center</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+background:#050b14;
+color:white;
+font-family:Arial;
+margin:0;
+}
+
+.header{
+background:#0f1b2e;
+padding:15px 25px;
+display:flex;
+align-items:center;
+justify-content:space-between;
+}
+
+.logo-section{
+display:flex;
+align-items:center;
+gap:15px;
+}
+
+.logo{height:50px;}
+
+.hospital{
+font-size:14px;
+color:#8fa3bf;
+}
+
+#clock{
+font-size:18px;
+color:#00ff9f;
+}
+
+.icu-grid{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:20px;
+padding:20px;
+}
+
+.patient-card{
+background:#0f1b2e;
+padding:15px;
+border-radius:10px;
+}
+
+.patient-header{
+display:flex;
+justify-content:space-between;
+margin-bottom:10px;
+}
+
+.bpm{
+font-size:22px;
+color:#00ff9f;
+}
+
+canvas{
+background:black;
+border-radius:10px;
+background-image:
+linear-gradient(rgba(0,255,150,0.1) 1px, transparent 1px),
+linear-gradient(90deg, rgba(0,255,150,0.1) 1px, transparent 1px);
+background-size:40px 40px;
+}
+
+.alert{color:red;font-size:14px;margin-top:5px;}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+
+<div class="logo-section">
+<img src="nhh.png" class="logo">
+<div>
+<h1>SmartECG ICU Command Center</h1>
+<div class="hospital">NHH Hospital Live Monitoring</div>
+</div>
+</div>
+
+<div id="clock"></div>
+
+</div>
+
+<div class="icu-grid">
+
+<div class="patient-card">
+<div class="patient-header">
+<div>Patient 1</div>
+<div id="bpm1" class="bpm">-- BPM</div>
+</div>
+<canvas id="ecg1"></canvas>
+<div id="alert1" class="alert"></div>
+</div>
+
+<div class="patient-card">
+<div class="patient-header">
+<div>Patient 2</div>
+<div id="bpm2" class="bpm">-- BPM</div>
+</div>
+<canvas id="ecg2"></canvas>
+<div id="alert2" class="alert"></div>
+</div>
+
+<div class="patient-card">
+<div class="patient-header">
+<div>Patient 3</div>
+<div id="bpm3" class="bpm">-- BPM</div>
+</div>
+<canvas id="ecg3"></canvas>
+<div id="alert3" class="alert"></div>
+</div>
+
+<div class="patient-card">
+<div class="patient-header">
+<div>Patient 4</div>
+<div id="bpm4" class="bpm">-- BPM</div>
+</div>
+<canvas id="ecg4"></canvas>
+<div id="alert4" class="alert"></div>
+</div>
+
+</div>
+
+<script>
+
+function createChart(canvasId){
+return new Chart(document.getElementById(canvasId).getContext('2d'),{
+type:'line',
+data:{labels:[],datasets:[{data:[],borderColor:'#00ff9f',borderWidth:2,fill:false}]},
+options:{animation:false,elements:{line:{tension:0.4}},scales:{x:{display:false},y:{min:0,max:4096}}}
+});
+}
+
+const charts=[
+createChart('ecg1'),
+createChart('ecg2'),
+createChart('ecg3'),
+createChart('ecg4')
+];
+
+const ecgBuffers=[[],[],[],[]];
+const peaks=[[],[],[],[]];
+const lastPeak=[0,0,0,0];
+
+const ws=new WebSocket("ws://localhost:8000/ws");
+
+ws.onmessage=(event)=>{
+
+let value=parseFloat(event.data);
+
+charts.forEach((chart,i)=>{
+
+let buffer=ecgBuffers[i];
+
+buffer.push(value);
+
+if(buffer.length>200) buffer.shift();
+
+chart.data.labels=buffer.map((_,k)=>k);
+chart.data.datasets[0].data=buffer;
+chart.update();
+
+if(value>2400 && Date.now()-lastPeak[i]>300){
+peaks[i].push(Date.now());
+lastPeak[i]=Date.now();
+}
+
+if(peaks[i].length>2){
+
+let interval=(peaks[i][peaks[i].length-1]-peaks[i][peaks[i].length-2])/1000;
+let bpm=Math.round(60/interval);
+
+let bpmEl=document.getElementById("bpm"+(i+1));
+let alertEl=document.getElementById("alert"+(i+1));
+
+bpmEl.innerText=bpm+" BPM";
+
+if(bpm>120){
+alertEl.innerText="⚠ Tachycardia";
+}
+else if(bpm<50){
+alertEl.innerText="⚠ Bradycardia";
+}
+else{
+alertEl.innerText="Normal";
+}
+
+}
+
+});
+
+};
+
+function updateClock(){
+let now=new Date();
+document.getElementById("clock").innerText=now.toLocaleDateString()+" "+now.toLocaleTimeString();
+}
+
+setInterval(updateClock,1000);
+
+</script>
+
+</body>
+</html>

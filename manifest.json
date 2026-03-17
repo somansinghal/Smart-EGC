@@ -1,0 +1,8 @@
+{
+    "name": "SmartECG Monitor",
+    "short_name": "SmartECG",
+    "display": "standalone",
+    "start_url": "/index.html",
+    "background_color": "#050b14",
+    "theme_color": "#00ff9f"
+    }
