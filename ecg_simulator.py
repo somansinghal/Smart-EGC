@@ -4,7 +4,7 @@ import websockets
 
 async def stream_ecg():
 
-    uri = "ws://127.0.0.1:8000/ws"
+    uri = "https://smart-egc.onrender.com"
 
     print("Connecting to server...")
 

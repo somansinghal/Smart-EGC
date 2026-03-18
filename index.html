@@ -214,7 +214,7 @@ const ecgBuffers=[[],[],[],[]];
 const peaks=[[],[],[],[]];
 const lastPeak=[0,0,0,0];
 
-const ws=new WebSocket("ws://localhost:8000/ws");
+const ws=new WebSocket("https://smart-egc.onrender.com");
 
 ws.onmessage=(event)=>{
 
