@@ -5,6 +5,7 @@
 <title>SmartECG ICU Command Center</title>
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 body{
@@ -91,7 +92,11 @@ background-size:40px 40px;
 </div>
 
 <div id="clock"></div>
+<button onclick="toggleDetails()" style="margin-left:20px;padding:8px 12px;border:none;border-radius:6px;background:#00ff9f;color:black;cursor:pointer;">View Patients</button>
+<button onclick="downloadReport()" style="margin-left:10px;padding:8px 12px;border:none;border-radius:6px;background:#4caf50;color:white;cursor:pointer;">Download Report</button>
+<button onclick="openMobilePanel()" style="margin-left:10px;padding:8px 12px;border:none;border-radius:6px;background:#2196f3;color:white;cursor:pointer;">Mobile Panel</button>
 
+<!-- END header -->
 </div>
 
 <div class="icu-grid">
@@ -100,7 +105,58 @@ background-size:40px 40px;
 <div class="patient-header">
 <div>Patient 1</div>
 <div id="bpm1" class="bpm">-- BPM</div>
+<button onclick="downloadPatientReport(1)" style="padding:4px 8px;border:none;border-radius:6px;background:#4caf50;color:white;cursor:pointer;">PDF</button>
 </div>
+
+<div id="patientModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:1000;">
+  <div style="width:80%;margin:50px auto;background:#0f1b2e;padding:20px;border-radius:10px;">
+    <h2>All Patients Details</h2>
+    <button onclick="toggleDetails()" style="float:right;margin-top:-40px;background:red;color:white;border:none;padding:5px 10px;border-radius:5px;cursor:pointer;">Close</button>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:20px;">
+      <div>
+        <h3>Patient 1</h3>
+        <p>ID: P-101</p>
+        <p>Age: 54</p>
+        <p>Blood Group: O+</p>
+        <p>Doctor: Dr Sharma</p>
+      </div>
+      <div>
+        <h3>Patient 2</h3>
+        <p>ID: P-102</p>
+        <p>Age: 60</p>
+        <p>Blood Group: A+</p>
+        <p>Doctor: Dr Mehta</p>
+      </div>
+      <div>
+        <h3>Patient 3</h3>
+        <p>ID: P-103</p>
+        <p>Age: 45</p>
+        <p>Blood Group: B+</p>
+        <p>Doctor: Dr Verma</p>
+      </div>
+      <div>
+        <h3>Patient 4</h3>
+        <p>ID: P-104</p>
+        <p>Age: 70</p>
+        <p>Blood Group: AB+</p>
+        <p>Doctor: Dr Gupta</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="mobilePanel" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#050b14;z-index:1000;overflow:auto;">
+  <div style="padding:20px;">
+    <h2>Doctor Mobile Panel</h2>
+    <button onclick="toggleMobilePanel()" style="background:red;color:white;border:none;padding:5px 10px;border-radius:5px;">Close</button>
+    <div style="margin-top:20px;">
+      <p>📊 Real-time Monitoring Active</p>
+      <p>🫀 Patient Alerts will appear here</p>
+      <p id="mobileAlert">No Alerts</p>
+    </div>
+  </div>
+</div>
+
 <canvas id="ecg1"></canvas>
 <div id="alert1" class="alert"></div>
 </div>
@@ -109,6 +165,7 @@ background-size:40px 40px;
 <div class="patient-header">
 <div>Patient 2</div>
 <div id="bpm2" class="bpm">-- BPM</div>
+<button onclick="downloadPatientReport(2)" style="padding:4px 8px;border:none;border-radius:6px;background:#4caf50;color:white;cursor:pointer;">PDF</button>
 </div>
 <canvas id="ecg2"></canvas>
 <div id="alert2" class="alert"></div>
@@ -118,6 +175,7 @@ background-size:40px 40px;
 <div class="patient-header">
 <div>Patient 3</div>
 <div id="bpm3" class="bpm">-- BPM</div>
+<button onclick="downloadPatientReport(3)" style="padding:4px 8px;border:none;border-radius:6px;background:#4caf50;color:white;cursor:pointer;">PDF</button>
 </div>
 <canvas id="ecg3"></canvas>
 <div id="alert3" class="alert"></div>
@@ -127,6 +185,7 @@ background-size:40px 40px;
 <div class="patient-header">
 <div>Patient 4</div>
 <div id="bpm4" class="bpm">-- BPM</div>
+<button onclick="downloadPatientReport(4)" style="padding:4px 8px;border:none;border-radius:6px;background:#4caf50;color:white;cursor:pointer;">PDF</button>
 </div>
 <canvas id="ecg4"></canvas>
 <div id="alert4" class="alert"></div>
@@ -185,14 +244,20 @@ let bpm=Math.round(60/interval);
 
 let bpmEl=document.getElementById("bpm"+(i+1));
 let alertEl=document.getElementById("alert"+(i+1));
+let beep = document.getElementById("beepSound");
+let mobileAlert = document.getElementById("mobileAlert");
 
 bpmEl.innerText=bpm+" BPM";
 
 if(bpm>120){
 alertEl.innerText="⚠ Tachycardia";
+beep.play();
+mobileAlert.innerText="⚠ Patient "+(i+1)+" Tachycardia";
 }
 else if(bpm<50){
 alertEl.innerText="⚠ Bradycardia";
+beep.play();
+mobileAlert.innerText="⚠ Patient "+(i+1)+" Bradycardia";
 }
 else{
 alertEl.innerText="Normal";
@@ -211,7 +276,116 @@ document.getElementById("clock").innerText=now.toLocaleDateString()+" "+now.toLo
 
 setInterval(updateClock,1000);
 
+function toggleDetails(){
+let modal = document.getElementById("patientModal");
+modal.style.display = modal.style.display === "none" ? "block" : "none";
+}
+
+function openMobilePanel(){
+  document.getElementById("mobilePanel").style.display="block";
+}
+
+function toggleMobilePanel(){
+  document.getElementById("mobilePanel").style.display="none";
+}
+
+function downloadPatientReport(i){
+  const { jsPDF } = window.jspdf;
+  let doc = new jsPDF();
+
+  doc.setFontSize(20);
+  doc.text("SmartECG Patient Report", 20, 20);
+
+  doc.setFontSize(12);
+  doc.text("Hospital: NHH ICU Monitoring", 20, 30);
+
+  let y = 45;
+
+  let bpm = document.getElementById("bpm"+i).innerText;
+  let alert = document.getElementById("alert"+i).innerText;
+
+  doc.setFontSize(14);
+  doc.text(`Patient ${i}`, 20, y);
+  y += 10;
+
+  doc.setFontSize(11);
+  doc.text(`Heart Rate: ${bpm}`, 20, y);
+  y += 8;
+
+  doc.text(`Condition: ${alert}`, 20, y);
+  y += 12;
+
+  // Add ECG chart image for that patient
+  let canvas = document.getElementById("ecg"+i);
+  let imgData = canvas.toDataURL("image/png");
+
+  doc.text("ECG Graph", 20, y);
+  y += 5;
+
+  doc.addImage(imgData, "PNG", 20, y, 160, 60);
+
+  y += 70;
+
+  doc.setFontSize(10);
+  doc.text("Generated by SmartECG AI System", 20, y);
+
+  doc.save(`Patient_${i}_ECG_Report.pdf`);
+}
+
+function downloadReport(){
+
+const { jsPDF } = window.jspdf;
+let doc = new jsPDF();
+
+// ===== Title =====
+doc.setFontSize(20);
+doc.text("SmartECG Medical Report", 20, 20);
+
+doc.setFontSize(12);
+doc.text("Hospital: NHH ICU Monitoring", 20, 30);
+
+let y = 45;
+
+// ===== Patient Data =====
+for(let i=1;i<=4;i++){
+
+  let bpm = document.getElementById("bpm"+i).innerText;
+  let alert = document.getElementById("alert"+i).innerText;
+
+  doc.setFontSize(14);
+  doc.text(`Patient ${i}`, 20, y);
+  y += 8;
+
+  doc.setFontSize(11);
+  doc.text(`Heart Rate: ${bpm}`, 20, y);
+  y += 6;
+
+  doc.text(`Condition: ${alert}`, 20, y);
+  y += 10;
+
+}
+
+// ===== Add ECG Chart Image =====
+let canvas = document.getElementById("ecg1");
+let imgData = canvas.toDataURL("image/png");
+
+doc.text("ECG Graph (Patient 1)", 20, y);
+y += 5;
+
+doc.addImage(imgData, "PNG", 20, y, 160, 60);
+
+y += 70;
+
+// ===== Footer =====
+doc.setFontSize(10);
+doc.text("Generated by SmartECG AI System", 20, y);
+
+doc.save("SmartECG_Report.pdf");
+}
+
 </script>
+
+<audio id="beepSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg"></audio>
 
 </body>
 </html>
